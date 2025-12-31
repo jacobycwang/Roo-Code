@@ -218,27 +218,38 @@ export async function loadRuleFiles(cwd: string): Promise<string> {
 }
 
 /**
- * Load AGENTS.md or AGENT.md file from the project root if it exists
- * Checks for both AGENTS.md (standard) and AGENT.md (alternative) for compatibility
+ * Load CLAUDE.md (Claude Code compatible) and/or AGENTS.md/AGENT.md files
+ * Priority order (all applicable files are loaded):
+ * 1. CLAUDE.md from global directory (~/.claude/CLAUDE.md for Claude Code compatibility)
+ * 2. CLAUDE.md from project root
+ * 3. AGENTS.md from project root (fallback if no CLAUDE.md files exist)
+ * 4. AGENT.md from project root (fallback if no CLAUDE.md or AGENTS.md files exist)
  */
 async function loadAgentRulesFile(cwd: string): Promise<string> {
-	// Try both filenames - AGENTS.md (standard) first, then AGENT.md (alternative)
-	const filenames = ["AGENTS.md", "AGENT.md"]
+	const globalClaudeDir = path.join(os.homedir(), ".claude")
+	const locations: Array<{ path: string; filename: string; source: string; isClaude: boolean }> = [
+		{ path: path.join(globalClaudeDir, "CLAUDE.md"), filename: "CLAUDE.md", source: "global", isClaude: true },
+		{ path: path.join(cwd, "CLAUDE.md"), filename: "CLAUDE.md", source: "project", isClaude: true },
+		{ path: path.join(cwd, "AGENTS.md"), filename: "AGENTS.md", source: "project", isClaude: false },
+		{ path: path.join(cwd, "AGENT.md"), filename: "AGENT.md", source: "project", isClaude: false },
+	]
 
-	for (const filename of filenames) {
+	const loadedSections: string[] = []
+	let foundClaudeMd = false
+
+	for (const location of locations) {
 		try {
-			const agentPath = path.join(cwd, filename)
-			let resolvedPath = agentPath
+			let resolvedPath = location.path
 
 			// Check if file exists and handle symlinks
 			try {
-				const stats = await fs.lstat(agentPath)
+				const stats = await fs.lstat(location.path)
 				if (stats.isSymbolicLink()) {
 					// Create a temporary fileInfo array to use with resolveSymLink
 					const fileInfo: Array<{ originalPath: string; resolvedPath: string }> = []
 
 					// Use the existing resolveSymLink function to handle symlink resolution
-					await resolveSymLink(agentPath, fileInfo, 0)
+					await resolveSymLink(location.path, fileInfo, 0)
 
 					// Extract the resolved path from fileInfo
 					if (fileInfo.length > 0) {
@@ -246,20 +257,31 @@ async function loadAgentRulesFile(cwd: string): Promise<string> {
 					}
 				}
 			} catch (err) {
-				// If lstat fails (file doesn't exist), try next filename
+				// If lstat fails (file doesn't exist), try next location
 				continue
 			}
 
 			// Read the content from the resolved path
 			const content = await safeReadFile(resolvedPath)
 			if (content) {
-				return `# Agent Rules Standard (${filename}):\n${content}`
+				if (location.isClaude) {
+					foundClaudeMd = true
+				}
+
+				// Skip AGENTS.md/AGENT.md if we found CLAUDE.md files
+				if (!location.isClaude && foundClaudeMd) {
+					continue
+				}
+
+				const sourceLabel = location.source === "global" ? "claudeMd" : `${location.filename}`
+				loadedSections.push(`# ${sourceLabel}\n${content}`)
 			}
 		} catch (err) {
 			// Silently ignore errors - agent rules files are optional
 		}
 	}
-	return ""
+
+	return loadedSections.join("\n\n")
 }
 
 export async function addCustomInstructions(

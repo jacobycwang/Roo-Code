@@ -32,7 +32,7 @@ Please analyze this codebase and create an AGENTS.md file containing:
     - The file you create will be given to agentic coding agents (such as yourself) that operate in this repository
     - Keep the main AGENTS.md concise - aim for about 20 lines, but use more if the project complexity requires it
     - If there's already an AGENTS.md, improve it
-    - If there are Claude Code rules (in CLAUDE.md), Cursor rules (in .cursor/rules/ or .cursorrules), or Copilot rules (in .github/copilot-instructions.md), make sure to include them
+    - If there are Claude Code rules (in ~/.claude/CLAUDE.md or CLAUDE.md), Cursor rules (in .cursor/rules/ or .cursorrules), or Copilot rules (in .github/copilot-instructions.md), make sure to include them
     - Be sure to prefix the file with: "# AGENTS.md\\n\\nThis file provides guidance to agents when working with code in this repository."
   </purpose>
   
@@ -58,7 +58,7 @@ Please analyze this codebase and create an AGENTS.md file containing:
        - Then add any new non-obvious patterns you discover
        
        Also check for other AI assistant rules:
-       - .cursorrules, CLAUDE.md, .roorules
+       - ~/.claude/CLAUDE.md (Claude Code global), CLAUDE.md (project), .cursorrules, .roorules
        - .cursor/rules/, .github/copilot-instructions.md
     
     2. Identify stack
@@ -163,7 +163,7 @@ Please analyze this codebase and create an AGENTS.md file containing:
     - Information derivable from file extensions or directory names
     
     Keep it concise (aim for ~20 lines, but expand as needed for complex projects).
-    Include existing AI assistant rules from CLAUDE.md, Cursor rules (.cursor/rules/ or .cursorrules), or Copilot rules (.github/copilot-instructions.md).
+    Include existing AI assistant rules from ~/.claude/CLAUDE.md, CLAUDE.md, Cursor rules (.cursor/rules/ or .cursorrules), or Copilot rules (.github/copilot-instructions.md).
   </main_file>
   
   <mode_specific_files>

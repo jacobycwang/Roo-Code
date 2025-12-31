@@ -17,7 +17,7 @@ import searchAndReplace from "./search_and_replace"
 import searchReplace from "./search_replace"
 import edit_file from "./edit_file"
 import searchFiles from "./search_files"
-import switchMode from "./switch_mode"
+// import switchMode from "./switch_mode"
 import updateTodoList from "./update_todo_list"
 import writeToFile from "./write_to_file"
 
@@ -32,27 +32,29 @@ export { convertOpenAIToolToAnthropic, convertOpenAIToolsToAnthropic } from "./c
  */
 export function getNativeTools(partialReadsEnabled: boolean = true): OpenAI.Chat.ChatCompletionTool[] {
 	return [
-		accessMcpResource,
-		apply_diff,
-		applyPatch,
+		// accessMcpResource,
 		askFollowupQuestion,
-		attemptCompletion,
-		browserAction,
-		codebaseSearch,
+		// attemptCompletion,
+		// browserAction,
+		// codebaseSearch,
 		executeCommand,
-		fetchInstructions,
-		generateImage,
-		listFiles,
-		newTask,
+		// fetchInstructions,
+		// generateImage,
+		// listFiles,
+		// newTask,
 		createReadFileTool(partialReadsEnabled),
-		runSlashCommand,
-		searchAndReplace,
-		searchReplace,
-		edit_file,
-		searchFiles,
-		switchMode,
-		updateTodoList,
+		// runSlashCommand,
+		// switchMode,
+
+		apply_diff,
+		// applyPatch,
+		// searchAndReplace,
+		// searchReplace,
+		// edit_file,
 		writeToFile,
+
+		searchFiles,
+		updateTodoList,
 	] satisfies OpenAI.Chat.ChatCompletionTool[]
 }
 

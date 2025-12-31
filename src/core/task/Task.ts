@@ -3438,7 +3438,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				}
 
 				// If we reach here without continuing, return false (will always be false for now)
-				return false
+				return true
 			} catch (error) {
 				// This should never happen since the only thing that can throw an
 				// error is the attemptApiRequest, which is wrapped in a try catch
@@ -3451,7 +3451,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		}
 
 		// If we exit the while loop normally (stack is empty), return false
-		return false
+		return true
 	}
 
 	private async getSystemPrompt(): Promise<string> {

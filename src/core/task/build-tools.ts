@@ -66,19 +66,11 @@ export async function buildNativeToolsArray(options: BuildToolsOptions): Promise
 	const nativeTools = getNativeTools(partialReadsEnabled)
 
 	// Filter native tools based on mode restrictions.
-	const filteredNativeTools = filterNativeToolsForMode(
-		nativeTools,
-		mode,
-		customModes,
-		experiments,
-		codeIndexManager,
-		filterSettings,
-		mcpHub,
-	)
+	const filteredNativeTools = nativeTools;
 
 	// Filter MCP tools based on mode restrictions.
 	const mcpTools = getMcpServerTools(mcpHub)
-	const filteredMcpTools = filterMcpToolsForMode(mcpTools, mode, customModes, experiments)
+	const filteredMcpTools = mcpTools;
 
 	// Add custom tools if they are available and the experiment is enabled.
 	let nativeCustomTools: OpenAI.Chat.ChatCompletionFunctionTool[] = []
