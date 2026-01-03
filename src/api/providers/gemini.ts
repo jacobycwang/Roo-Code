@@ -6,8 +6,14 @@ import {
 	type GenerateContentConfig,
 	type GroundingMetadata,
 	FunctionCallingConfigMode,
+	createUserContent,
+	createPartFromText,
+	Tool,
 } from "@google/genai"
 import type { JWTInput } from "google-auth-library"
+import crypto from "crypto"
+import * as fs from "fs/promises"
+import * as path from "path"
 
 import {
 	type ModelInfo,
@@ -41,6 +47,9 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 	private lastThoughtSignature?: string
 	private lastResponseId?: string
 	private readonly providerName = "Gemini"
+	private repomixCacheName?: string
+	private repomixPath?: string
+	private repomixFileContent?: string
 
 	constructor({ isVertex, ...options }: GeminiHandlerOptions) {
 		super()
@@ -72,13 +81,86 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 					: new GoogleGenAI({ apiKey })
 	}
 
+	async setupRepomixCache(repomixPath: string): Promise<void> {
+		const exists = await fs
+			.access(repomixPath)
+			.then(() => true)
+			.catch(() => false)
+		if (!exists) {
+			return
+		}
+
+		this.repomixPath = repomixPath
+		this.repomixFileContent = await fs.readFile(repomixPath, "utf-8")
+		this.repomixCacheName = undefined
+	}
+
+	private async ensureRepomixCache(
+		systemInstruction: string,
+		tools: GenerateContentConfig["tools"],
+	): Promise<void> {
+		if (!this.repomixFileContent) {
+			return
+		}
+
+		const contentHash = crypto.createHash("md5").update(this.repomixFileContent).digest("hex")
+		const disableToolsFlag = this.options.disableAllTools ? "-notools" : ""
+		const displayName = `repomix-${contentHash}${disableToolsFlag}`
+		const { id: model } = this.getModel()
+
+		const cacheName = `cachedContents/${displayName}`
+
+		const existingCache = await this.client.caches.get({ name: cacheName }).catch(() => null)
+
+		if (existingCache?.name) {
+			await this.client.caches.update({
+				name: existingCache.name,
+				config: { ttl: "600s" },
+			})
+			this.repomixCacheName = existingCache.name
+			return
+		}
+
+		const funcTools = tools?.flatMap(tool => 'functionDeclarations' in tool ? tool.functionDeclarations ?? [] : [])
+
+		let cacheToolsConfig: Tool[] | undefined
+		if (this.options.disableAllTools) {
+			const builtInTools: Tool[] = []
+			if (this.options.enableUrlContext) {
+				builtInTools.push({ urlContext: {} })
+			}
+			if (this.options.enableGrounding) {
+				builtInTools.push({ googleSearch: {} })
+			}
+			cacheToolsConfig = builtInTools.length > 0 ? builtInTools : undefined
+		} else {
+			cacheToolsConfig = funcTools && funcTools.length > 0 ? [{ functionDeclarations: funcTools }] : undefined
+		}
+
+		const cache = await this.client.caches.create({
+			model,
+			config: {
+				displayName,
+				systemInstruction,
+				contents: createUserContent(
+					createPartFromText(
+						`<repomix_codebase_context>\n${this.repomixFileContent}\n</repomix_codebase_context>`,
+					),
+				),
+				...(cacheToolsConfig ? { tools: cacheToolsConfig } : {}),
+				ttl: "600s",
+			},
+		})
+
+		this.repomixCacheName = cache.name
+	}
+
 	async *createMessage(
 		systemInstruction: string,
 		messages: Anthropic.Messages.MessageParam[],
 		metadata?: ApiHandlerCreateMessageMetadata,
 	): ApiStream {
 		const { id: model, info, reasoning: thinkingConfig, maxTokens } = this.getModel()
-		// Reset per-request metadata that we persist into apiConversationHistory.
 		this.lastThoughtSignature = undefined
 		this.lastResponseId = undefined
 
@@ -135,7 +217,15 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 		// with function declarations in the Gemini API. If native function calling is
 		// used (Agent tools), we must prioritize it and skip built-in tools to avoid
 		// "Tool use with function calling is unsupported" (HTTP 400) errors.
-		if (metadata?.tools && metadata.tools.length > 0) {
+		if (this.options.disableAllTools) {
+			if (this.options.enableUrlContext) {
+				tools.push({ urlContext: {} })
+			}
+
+			if (this.options.enableGrounding) {
+				tools.push({ googleSearch: {} })
+			}
+		} else if (metadata?.tools && metadata.tools.length > 0) {
 			tools.push({
 				functionDeclarations: metadata.tools.map((tool) => ({
 					name: (tool as any).function.name,
@@ -153,6 +243,10 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 			}
 		}
 
+		if (this.repomixFileContent && !this.repomixCacheName) {
+			await this.ensureRepomixCache(systemInstruction, tools)
+		}
+
 		// Determine temperature respecting model capabilities and defaults:
 		// - If supportsTemperature is explicitly false, ignore user overrides
 		//   and pin to the model's defaultTemperature (or omit if undefined).
@@ -164,39 +258,44 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 			: info.defaultTemperature
 
 		const config: GenerateContentConfig = {
-			systemInstruction,
 			httpOptions: this.options.googleGeminiBaseUrl ? { baseUrl: this.options.googleGeminiBaseUrl } : undefined,
 			thinkingConfig,
 			maxOutputTokens,
 			temperature: temperatureConfig,
-			...(tools.length > 0 ? { tools } : {}),
 		}
 
-		if (metadata?.tool_choice) {
-			const choice = metadata.tool_choice
-			let mode: FunctionCallingConfigMode
-			let allowedFunctionNames: string[] | undefined
-
-			if (choice === "auto") {
-				mode = FunctionCallingConfigMode.AUTO
-			} else if (choice === "none") {
-				mode = FunctionCallingConfigMode.NONE
-			} else if (choice === "required") {
-				// "required" means the model must call at least one tool; Gemini uses ANY for this.
-				mode = FunctionCallingConfigMode.ANY
-			} else if (typeof choice === "object" && "function" in choice && choice.type === "function") {
-				mode = FunctionCallingConfigMode.ANY
-				allowedFunctionNames = [choice.function.name]
-			} else {
-				// Fall back to AUTO for unknown values to avoid unintentionally broadening tool access.
-				mode = FunctionCallingConfigMode.AUTO
+		if (this.repomixCacheName) {
+			config.cachedContent = this.repomixCacheName
+		} else {
+			config.systemInstruction = systemInstruction
+			if (tools.length > 0) {
+				config.tools = tools
 			}
 
-			config.toolConfig = {
-				functionCallingConfig: {
-					mode,
-					...(allowedFunctionNames ? { allowedFunctionNames } : {}),
-				},
+			if (metadata?.tool_choice) {
+				const choice = metadata.tool_choice
+				let mode: FunctionCallingConfigMode
+				let allowedFunctionNames: string[] | undefined
+
+				if (choice === "auto") {
+					mode = FunctionCallingConfigMode.AUTO
+				} else if (choice === "none") {
+					mode = FunctionCallingConfigMode.NONE
+				} else if (choice === "required") {
+					mode = FunctionCallingConfigMode.ANY
+				} else if (typeof choice === "object" && "function" in choice && choice.type === "function") {
+					mode = FunctionCallingConfigMode.ANY
+					allowedFunctionNames = [choice.function.name]
+				} else {
+					mode = FunctionCallingConfigMode.AUTO
+				}
+
+				config.toolConfig = {
+					functionCallingConfig: {
+						mode,
+						...(allowedFunctionNames ? { allowedFunctionNames } : {}),
+					},
+				}
 			}
 		}
 

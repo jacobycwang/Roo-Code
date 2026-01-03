@@ -132,6 +132,7 @@ export interface ExtensionMessage {
 		| "browserSessionNavigate"
 		| "claudeCodeRateLimits"
 		| "customToolsResult"
+		| "repomixFileStatus"
 	text?: string
 	payload?: any // Add a generic payload for now, can refine later
 	// Checkpoint warning message
@@ -196,6 +197,7 @@ export interface ExtensionMessage {
 	setting?: string
 	value?: any
 	hasContent?: boolean // For checkRulesDirectoryResult
+	exists?: boolean // For repomixFileStatus
 	items?: MarketplaceItem[]
 	userInfo?: CloudUserInfo
 	organizationAllowList?: OrganizationAllowList
@@ -291,6 +293,8 @@ export type ExtensionState = Pick<
 	| "maxGitStatusFiles"
 	| "requestDelaySeconds"
 > & {
+	repomixContextEnabled?: boolean
+	disableAllTools?: boolean
 	version: string
 	clineMessages: ClineMessage[]
 	currentTaskItem?: HistoryItem

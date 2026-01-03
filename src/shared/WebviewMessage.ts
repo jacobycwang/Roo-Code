@@ -180,6 +180,10 @@ export interface WebviewMessage {
 		| "downloadErrorDiagnostics"
 		| "requestClaudeCodeRateLimits"
 		| "refreshCustomTools"
+		| "checkRepomixFile"
+		| "repomixFileStatus"
+		| "toggleRepomixContext"
+		| "toggleDisableAllTools"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -227,6 +231,8 @@ export interface WebviewMessage {
 	config?: Record<string, any> // Add config to the payload
 	visibility?: ShareVisibility // For share visibility
 	hasContent?: boolean // For checkRulesDirectoryResult
+	enabled?: boolean // For toggleRepomixContext
+	exists?: boolean // For repomixFileStatus
 	checkOnly?: boolean // For deleteCustomMode check
 	upsellId?: string // For dismissUpsell
 	list?: string[] // For dismissedUpsells response

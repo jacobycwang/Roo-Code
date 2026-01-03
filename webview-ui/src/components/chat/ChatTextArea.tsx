@@ -29,7 +29,8 @@ import { ApiConfigSelector } from "./ApiConfigSelector"
 import { AutoApproveDropdown } from "./AutoApproveDropdown"
 import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import ContextMenu from "./ContextMenu"
-import { IndexingStatusBadge } from "./IndexingStatusBadge"
+import { RepomixButton } from "./RepomixButton"
+import { DisableAllToolsButton } from "./DisableAllToolsButton"
 import { usePromptHistory } from "./hooks/usePromptHistory"
 import { CloudAccountSwitcher } from "../cloud/CloudAccountSwitcher"
 
@@ -1290,7 +1291,8 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 								</button>
 							</StandardTooltip>
 						)}
-						{!isEditMode ? <IndexingStatusBadge /> : null}
+						{!isEditMode ? <RepomixButton /> : null}
+						{!isEditMode ? <DisableAllToolsButton /> : null}
 						{!isEditMode && cloudUserInfo && <CloudAccountSwitcher />}
 						{/* keep props referenced after moving browser button */}
 						<div

@@ -1,5 +1,6 @@
 import * as path from "path"
 import * as vscode from "vscode"
+import * as fs from "fs/promises"
 import os from "os"
 import crypto from "crypto"
 import EventEmitter from "events"
@@ -89,6 +90,7 @@ import { TerminalRegistry } from "../../integrations/terminal/TerminalRegistry"
 // utils
 import { calculateApiCostAnthropic, calculateApiCostOpenAI } from "../../shared/cost"
 import { getWorkspacePath } from "../../utils/path"
+import { fileExistsAtPath } from "../../utils/fs"
 
 // prompts
 import { formatResponse } from "../prompts/responses"
@@ -2252,6 +2254,21 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 		let nextUserContent = userContent
 		let includeFileDetails = true
 
+		// Inject repomix context if enabled
+		const state = await this.providerRef.deref()?.getState()
+		const repomixEnabled = state?.repomixContextEnabled
+		if (repomixEnabled) {
+			const repomixPath = path.join(this.cwd, "repomix-output.xml")
+			if (await fileExistsAtPath(repomixPath)) {
+				const geminiHandler = this.api as any
+				if (geminiHandler.setupRepomixCache && typeof geminiHandler.setupRepomixCache === "function") {
+					await geminiHandler.setupRepomixCache(repomixPath)
+				} else {
+					// Jacob: only support gemini
+				}
+			}
+		}
+
 		this.emit(RooCodeEventName.TaskStarted)
 
 		while (!this.abort) {
@@ -3296,32 +3313,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 
 					await pWaitFor(() => this.userMessageContentReady)
 
-					// If the model did not tool use, then we need to tell it to
-					// either use a tool or attempt_completion.
-					const didToolUse = this.assistantMessageContent.some(
-						(block) => block.type === "tool_use" || block.type === "mcp_tool_use",
-					)
-
-					if (!didToolUse) {
-						// Increment consecutive no-tool-use counter
-						this.consecutiveNoToolUseCount++
-
-						// Only show error and count toward mistake limit after 2 consecutive failures
-						if (this.consecutiveNoToolUseCount >= 2) {
-							await this.say("error", "MODEL_NO_TOOLS_USED")
-							// Only count toward mistake limit after second consecutive failure
-							this.consecutiveMistakeCount++
-						}
-
-						// Use the task's locked protocol for consistent behavior
-						this.userMessageContent.push({
-							type: "text",
-							text: formatResponse.noToolsUsed(this._taskToolProtocol ?? "xml"),
-						})
-					} else {
-						// Reset counter when tools are used successfully
-						this.consecutiveNoToolUseCount = 0
-					}
+					// Jacob: skip too use constraint
 
 					// Push to stack if there's content OR if we're paused waiting for a subtask.
 					// When paused, we push an empty item so the loop continues to the pause check.

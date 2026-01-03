@@ -3206,6 +3206,38 @@ export const webviewMessageHandler = async (
 			break
 		}
 
+		case "checkRepomixFile": {
+			const cwd = getCurrentCwd()
+			if (!cwd) {
+				provider.postMessageToWebview({
+					type: "repomixFileStatus",
+					exists: false,
+				})
+				break
+			}
+
+			const repomixPath = path.join(cwd, "repomix-output.xml")
+			const exists = await fileExistsAtPath(repomixPath)
+
+			provider.postMessageToWebview({
+				type: "repomixFileStatus",
+				exists,
+			})
+			break
+		}
+
+		case "toggleRepomixContext": {
+			const enabled = message.enabled ?? false
+			await updateGlobalState("repomixContextEnabled" as any, enabled)
+			break
+		}
+
+		case "toggleDisableAllTools": {
+			const enabled = message.enabled ?? false
+			await updateGlobalState("disableAllTools" as any, enabled)
+			break
+		}
+
 		default: {
 			// console.log(`Unhandled message type: ${message.type}`)
 			//

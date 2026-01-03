@@ -1901,6 +1901,8 @@ export class ClineProvider
 			includeCurrentTime,
 			includeCurrentCost,
 			maxGitStatusFiles,
+			repomixContextEnabled,
+			disableAllTools,
 			taskSyncEnabled,
 			remoteControlEnabled,
 			imageGenerationProvider,
@@ -2071,6 +2073,8 @@ export class ClineProvider
 			includeCurrentTime: includeCurrentTime ?? true,
 			includeCurrentCost: includeCurrentCost ?? true,
 			maxGitStatusFiles: maxGitStatusFiles ?? 0,
+			repomixContextEnabled: repomixContextEnabled ?? false,
+			disableAllTools: disableAllTools ?? false,
 			taskSyncEnabled,
 			remoteControlEnabled,
 			imageGenerationProvider,
@@ -2312,6 +2316,8 @@ export class ClineProvider
 			includeCurrentTime: stateValues.includeCurrentTime ?? true,
 			includeCurrentCost: stateValues.includeCurrentCost ?? true,
 			maxGitStatusFiles: stateValues.maxGitStatusFiles ?? 0,
+			repomixContextEnabled: (stateValues as any).repomixContextEnabled ?? false,
+			disableAllTools: (stateValues as any).disableAllTools ?? false,
 			taskSyncEnabled,
 			remoteControlEnabled: (() => {
 				try {
